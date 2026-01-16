@@ -8,6 +8,7 @@ PACKAGES = " \
     ${PN}-qcom-hamoa-soc \
     ${PN}-qcom-qcm2290-soc \
     ${PN}-qcom-qcs6490-soc \
+    ${PN}-qcom-qcs615-soc \
     ${PN}-qcom-qcs8300-soc \
     ${PN}-qcom-qcs9100-soc \
 "
@@ -136,6 +137,18 @@ RRECOMMENDS:${PN}-qcom-qcs6490-soc += " \
     kernel-module-pwrseq-qcom-wcn \
     kernel-module-snd-soc-wsa883x \
     kernel-module-videocc-sc7280 \
+"
+
+RRECOMMENDS:${PN}-qcom-qcs615-soc += " \
+    ${PN}-board-generic \
+    ${PN}-qcom-generic \
+    kernel-module-ath11k-pci \
+    kernel-module-camcc-qcs615 \
+    kernel-module-dispcc-qcs615 \
+    kernel-module-gpucc-qcs615 \
+    kernel-module-pwrseq-qcom-wcn \
+    kernel-module-stmmac-platform \
+    kernel-module-videocc-qcs615 \
 "
 
 RRECOMMENDS:${PN}-qcom-qcs8300-soc += " \
