@@ -1,0 +1,33 @@
+From 36d81f84046e8cd1876fa3024c158f29b8a19db9 Mon Sep 17 00:00:00 2001
+From: Xinzheng Long <xinlon@qti.qualcomm.com>
+Date: Tue, 13 Jan 2026 16:04:14 +0800
+Subject: [PATCH] arm64: dts: qcom: Switch USB1/USB2 DWC3 dr_mode to peripheral
+
+Upstream-Status: Pending
+Signed-off-by: Xinzheng Long <xinlon@qti.qualcomm.com>
+---
+ arch/arm64/boot/dts/qcom/talos-evk-som.dtsi | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/talos-evk-som.dtsi b/arch/arm64/boot/dts/qcom/talos-evk-som.dtsi
+index e63f88da8ff6..57ecd337f6b6 100644
+--- a/arch/arm64/boot/dts/qcom/talos-evk-som.dtsi
++++ b/arch/arm64/boot/dts/qcom/talos-evk-som.dtsi
+@@ -553,7 +553,7 @@ &usb_1 {
+ };
+ 
+ &usb_1_dwc3 {
+-	dr_mode = "host";
++	dr_mode = "peripheral";
+ };
+ 
+ &usb_hsphy_1 {
+@@ -569,7 +569,7 @@ &usb_2 {
+ };
+ 
+ &usb_2_dwc3 {
+-	dr_mode = "host";
++	dr_mode = "peripheral";
+ };
+ 
+ &usb_hsphy_2 {
