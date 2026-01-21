@@ -18,12 +18,17 @@ SRCREV ?= "65bb05266d477c9f7b06bc275bd622dbed08a53b"
 SRCBRANCH ?= "nobranch=1"
 SRCBRANCH:class-devupstream ?= "branch=qcom-next"
 
-SRC_URI = "git://github.com/qualcomm-linux/kernel.git;${SRCBRANCH};protocol=https"
+SRC_URI = "git://github.com/qualcomm-linux/kernel.git;${SRCBRANCH};protocol=https \
+           file://configs/bsp-additions.cfg \
+           ${@bb.utils.contains('DISTRO_FEATURES', 'selinux', 'file://selinux.cfg', '', d)} \
+           file://0001-FROMLIST-dt-bindings-arm-qcom-Document-PURWA-IOT-EVK.patch \
+           file://0002-FROMLIST-firmware-qcom-scm-Allow-QSEECOM-on-PURWA-IO.patch \
+           file://0003-FROMLIST-arm64-dts-qcom-Add-PURWA-IOT-SOM-platform.patch \
+           file://0004-FROMLIST-arm64-dts-qcom-Add-base-PURWA-IOT-EVK-board.patch \
+           file://0005-QCLINUX-arm64-dts-qcom-workaround-for-TPM-pins.patch \
+           "
 
 # Additional kernel configs.
-SRC_URI += " \
-    file://configs/bsp-additions.cfg \
-"
 
 # To build tip of qcom-next branch set preferred
 # virtual/kernel provider to 'linux-qcom-next-upstream'

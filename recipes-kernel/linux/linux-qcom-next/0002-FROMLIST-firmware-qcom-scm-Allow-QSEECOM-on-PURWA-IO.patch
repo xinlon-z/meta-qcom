@@ -1,0 +1,31 @@
+From d3aecc909e7f483fc1c3cd1c4bdc36592b8e6bb3 Mon Sep 17 00:00:00 2001
+From: Yijie Yang <yijie.yang@oss.qualcomm.com>
+Date: Thu, 13 Nov 2025 10:06:39 +0800
+Subject: [PATCH] FROMLIST: firmware: qcom: scm: Allow QSEECOM on PURWA-IOT-EVK
+
+Add the Purwa-IoT-EVK board to the list to enable access to EFI variables.
+
+Guarantee that subsystems relying on SCM services can access secure-world
+features. This change improves reliability and prevents missing
+functionality or boot-time issues by making service availability explicit.
+
+Upstream-Status: Pending
+Reviewed-by: Dmitry Baryshkov <dmitry.baryshkov@oss.qualcomm.com>
+Signed-off-by: Yijie Yang <yijie.yang@oss.qualcomm.com>
+Link: https://lore.kernel.org/all/20260113102822.590677-2-yijie.yang@oss.qualcomm.com/
+---
+ drivers/firmware/qcom/qcom_scm.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/firmware/qcom/qcom_scm.c b/drivers/firmware/qcom/qcom_scm.c
+index 71a9c8fe2cdb..27cd6ee10397 100644
+--- a/drivers/firmware/qcom/qcom_scm.c
++++ b/drivers/firmware/qcom/qcom_scm.c
+@@ -2297,6 +2297,7 @@ static const struct of_device_id qcom_scm_qseecom_allowlist[] __maybe_unused = {
+ 	{ .compatible = "microsoft,romulus13", },
+ 	{ .compatible = "microsoft,romulus15", },
+ 	{ .compatible = "qcom,hamoa-iot-evk" },
++	{ .compatible = "qcom,purwa-iot-evk" },
+ 	{ .compatible = "qcom,sc8180x-primus" },
+ 	{ .compatible = "qcom,x1e001de-devkit" },
+ 	{ .compatible = "qcom,x1e80100-crd" },

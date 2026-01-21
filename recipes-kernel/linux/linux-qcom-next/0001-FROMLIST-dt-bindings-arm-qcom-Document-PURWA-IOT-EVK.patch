@@ -1,0 +1,34 @@
+From 9d4335398157ee5fadd8cf1435f8662e67196d20 Mon Sep 17 00:00:00 2001
+From: Yijie Yang <yijie.yang@oss.qualcomm.com>
+Date: Thu, 13 Nov 2025 10:05:40 +0800
+Subject: [PATCH] FROMLIST: dt-bindings: arm: qcom: Document PURWA-IOT-EVK
+ board
+
+Document the device tree bindings for the PURWA-IOT-EVK board, which
+uses the Qualcomm X1P42100 SoC.
+
+Upstream-Status: Pending
+Reviewed-by: Krzysztof Kozlowski <krzysztof.kozlowski@oss.qualcomm.com>
+Signed-off-by: Yijie Yang <yijie.yang@oss.qualcomm.com>
+Link: https://lore.kernel.org/all/20260113102822.590677-1-yijie.yang@oss.qualcomm.com/
+---
+ Documentation/devicetree/bindings/arm/qcom.yaml | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/arm/qcom.yaml b/Documentation/devicetree/bindings/arm/qcom.yaml
+index 41a6492bdf3b..6e4518dec3bc 100644
+--- a/Documentation/devicetree/bindings/arm/qcom.yaml
++++ b/Documentation/devicetree/bindings/arm/qcom.yaml
+@@ -1100,6 +1100,12 @@ properties:
+           - const: qcom,hamoa-iot-som
+           - const: qcom,x1e80100
+ 
++      - items:
++          - enum:
++              - qcom,purwa-iot-evk
++          - const: qcom,purwa-iot-som
++          - const: qcom,x1p42100
++
+       - items:
+           - enum:
+               - asus,zenbook-a14-ux3407qa-lcd
