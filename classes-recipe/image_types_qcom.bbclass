@@ -48,115 +48,149 @@ deploy_partition_files() {
 }
 
 create_qcomflash_pkg() {
-    # esp image
-    [ -n "${QCOM_ESP_FILE}" ] && install -m 0644 ${QCOM_ESP_FILE} efi.bin
+    # 1. 获取路径列表（已知不为空）
+    local part_list="${QCOM_PARTITION_FILES_SUBDIR}"
+    # 计算路径数量
+    local count=$(echo ${part_list} | wc -w)
 
-    # dtb image
-    if [ -n "${QCOM_DTB_DEFAULT}" ] && \
-                [ -f "${DEPLOY_DIR_IMAGE}/dtb-${QCOM_DTB_DEFAULT}-image.vfat" ]; then
-        # default image
-        install -m 0644 ${DEPLOY_DIR_IMAGE}/dtb-${QCOM_DTB_DEFAULT}-image.vfat ${QCOM_DTB_FILE}
-        # copy all images so they can be made available via the same tarball
-        for dtbimg in ${DEPLOY_DIR_IMAGE}/dtb-*-image.vfat; do
-            install -m 0644 ${dtbimg} .
-        done
-    fi
+    # 2. 遍历每一个存储分区配置
+    for part_dir in ${part_list}; do
+        # 获取当前存储类型的名称 (如 ufs, nvme, spinor)
+        local storage_type=$(basename "${part_dir}")
+        local dest_dir="."
 
-    # vmlinux
-    [ -e "${DEPLOY_DIR_IMAGE}/vmlinux" -a \
-        ! -e "vmlinux" ] && \
-        install -m 0644 "${DEPLOY_DIR_IMAGE}/vmlinux" vmlinux
-
-    # Legacy boot images
-    if [ -n "${QCOM_DTB_DEFAULT}" ]; then
-        [ -e "${DEPLOY_DIR_IMAGE}/boot-initramfs-${QCOM_DTB_DEFAULT}-${MACHINE}.img" -a \
-            ! -e "boot.img" ] && \
-            install -m 0644 "${DEPLOY_DIR_IMAGE}/boot-initramfs-${QCOM_DTB_DEFAULT}-${MACHINE}.img" boot.img
-        [ -e "${DEPLOY_DIR_IMAGE}/boot-${QCOM_DTB_DEFAULT}-${MACHINE}.img" -a \
-            ! -e "boot.img" ] && \
-            install -m 0644 "${DEPLOY_DIR_IMAGE}/boot-${QCOM_DTB_DEFAULT}-${MACHINE}.img" boot.img
-    fi
-    [ -e "${DEPLOY_DIR_IMAGE}/boot-${MACHINE}.img" -a \
-        ! -e "boot.img" ] && \
-        install -m 0644 "${DEPLOY_DIR_IMAGE}/boot-${MACHINE}.img" boot.img
-
-    # rootfs image
-    install -m 0644 ${IMGDEPLOYDIR}/${IMAGE_LINK_NAME}.${IMAGE_QCOMFLASH_FS_TYPE} rootfs.img
-
-    # partition bins/xml files
-    if [ -n "${QCOM_PARTITION_FILES_SUBDIR}" ]; then
-        deploy_partition_files ${DEPLOY_DIR_IMAGE}/${QCOM_PARTITION_FILES_SUBDIR} .
-    fi
-
-    if [ -n "${QCOM_BOOT_FILES_SUBDIR}" ]; then
-        # install CDT file if present,for targets with spinor, CDT file
-        # will be in spinor subfolder instead of root folder
-        if [ -n "${QCOM_CDT_FILE}" ] && [ -e "${DEPLOY_DIR_IMAGE}/${QCOM_BOOT_FILES_SUBDIR}/${QCOM_CDT_FILE}.bin" ]; then
-            install -m 0644 ${DEPLOY_DIR_IMAGE}/${QCOM_BOOT_FILES_SUBDIR}/${QCOM_CDT_FILE}.bin cdt.bin
+        # 3. 确定安装目标目录
+        # 如果有多个路径，则创建对应子目录；如果是单个路径，保持在根目录 (.)
+        if [ "$count" -gt 1 ]; then
+            dest_dir="${storage_type}"
+            # 清理旧数据并创建新目录
+            rm -rf "${dest_dir}"
+            install -d "${dest_dir}"
         fi
 
-        # boot firmware
-        for bfw in `find ${DEPLOY_DIR_IMAGE}/${QCOM_BOOT_FILES_SUBDIR} -maxdepth 1 -type f \
-                \( -name '*.elf' ! -name 'abl2esp*.elf' ! -name 'xbl_config*.elf' \) -o \
-                -name '*.mbn*' -o \
-                -name '*.fv' -o \
-                -name 'cdt_*.bin' -o \
-                -name 'logfs_*.bin' -o \
-                -name 'sec.dat'` ; do
-            install -m 0644 ${bfw} .
-        done
+        bbnote "Generating QCOM flash package: ${storage_type} -> ${dest_dir}"
 
-        # xbl_config
-        xbl_config="xbl_config.elf"
-        if ${@bb.utils.contains('DISTRO_FEATURES', 'kvm', 'true', 'false', d)}; then
-            xbl_config="xbl_config_kvm.elf"
+        # --- [A] 基础镜像 (所有类型通用) ---
+        # Rootfs
+        install -m 0644 ${IMGDEPLOYDIR}/${IMAGE_LINK_NAME}.${IMAGE_QCOMFLASH_FS_TYPE} "${dest_dir}/rootfs.img"
+
+        # Kernel (vmlinux)
+        if [ -e "${DEPLOY_DIR_IMAGE}/vmlinux" ]; then
+            install -m 0644 "${DEPLOY_DIR_IMAGE}/vmlinux" "${dest_dir}/vmlinux"
         fi
 
-        if [ -f "${DEPLOY_DIR_IMAGE}/${QCOM_BOOT_FILES_SUBDIR}/${xbl_config}" ]; then
-            install -m 0644 "${DEPLOY_DIR_IMAGE}/${QCOM_BOOT_FILES_SUBDIR}/${xbl_config}" xbl_config.elf
+        # ESP / EFI (如果有)
+        if [ -n "${QCOM_ESP_FILE}" ]; then
+            install -m 0644 ${QCOM_ESP_FILE} "${dest_dir}/efi.bin"
         fi
 
-        # sail nor firmware
-        if [ -d "${DEPLOY_DIR_IMAGE}/${QCOM_BOOT_FILES_SUBDIR}/sail_nor" ]; then
-            install -d sail_nor
-            find "${DEPLOY_DIR_IMAGE}/${QCOM_BOOT_FILES_SUBDIR}/sail_nor" -maxdepth 1 -type f -exec install -m 0644 {} sail_nor \;
+        # --- [B] 分区表 XML (Partition Tables) ---
+        if [ -d "${part_dir}" ]; then
+            deploy_partition_files "${part_dir}" "${dest_dir}"
         fi
 
-        # SPI-NOR firmware, partition bins, CDT etc.
-        if [ -d "${DEPLOY_DIR_IMAGE}/${QCOM_BOOT_FILES_SUBDIR}/spinor" ]; then
-            install -d spinor
-            find "${DEPLOY_DIR_IMAGE}/${QCOM_BOOT_FILES_SUBDIR}/spinor" -maxdepth 1 -type f -exec install -m 0644 {} spinor \;
+        # --- [C] 固件与 Boot Images (区分 Spinor 和 普通存储) ---
 
-            # partition bins/xml files
-            if [ -n "${QCOM_PARTITION_FILES_SUBDIR_SPINOR}" ]; then
-                deploy_partition_files ${DEPLOY_DIR_IMAGE}/${QCOM_PARTITION_FILES_SUBDIR_SPINOR} spinor
+        if [ "$storage_type" = "spinor" ]; then
+            # ==========================================
+            # [CASE 1] SPINOR 特殊处理
+            # ==========================================
+            local spinor_src="${DEPLOY_DIR_IMAGE}/${QCOM_BOOT_FILES_SUBDIR}/spinor"
+
+            if [ -d "${spinor_src}" ]; then
+                # 1. 拷贝所有 Spinor 专用固件 (包含 xbl, aop, non-hlos 等)
+                find "${spinor_src}" -maxdepth 1 -type f -exec install -m 0644 {} "${dest_dir}" \;
+
+                # 2. CDT (Spinor): 确保使用 spinor 目录下的 CDT
+                if [ -n "${QCOM_CDT_FILE}" ] && [ -e "${spinor_src}/${QCOM_CDT_FILE}.bin" ]; then
+                    install -m 0644 "${spinor_src}/${QCOM_CDT_FILE}.bin" "${dest_dir}/cdt.bin"
+                fi
+
+                # 3. DTB (Spinor): 通常只放默认的一个 dtb.bin
+                if [ -n "${QCOM_DTB_FILE}" ] && [ -n "${QCOM_DTB_DEFAULT}" ]; then
+                     install -m 0644 "${DEPLOY_DIR_IMAGE}/dtb-${QCOM_DTB_DEFAULT}-image.vfat" "${dest_dir}/${QCOM_DTB_FILE}"
+                fi
+
+                # 4. Programmer (xbl_s_devprg_ns.melf): 上面的 find 可能已覆盖，这里确保万无一失
+                find "${spinor_src}" -maxdepth 1 -type f -name 'xbl_s_devprg_ns.melf' -exec install -m 0644 {} "${dest_dir}" \;
+
+            else
+                bbwarn "Spinor storage requested but source directory ${spinor_src} not found!"
             fi
 
-            # cdt file
-            if [ -n "${QCOM_CDT_FILE}" ]; then
-                install -m 0644 ${DEPLOY_DIR_IMAGE}/${QCOM_BOOT_FILES_SUBDIR}/spinor/${QCOM_CDT_FILE}.bin spinor/cdt.bin
-            fi
+        else
+            # ==========================================
+            # [CASE 2] 标准存储处理 (UFS / NVMe)
+            # ==========================================
+            local common_src="${DEPLOY_DIR_IMAGE}/${QCOM_BOOT_FILES_SUBDIR}"
 
-            # dtb image
-            if [ -n "${QCOM_DTB_FILE}" ]; then
-                install -m 0644 ${DEPLOY_DIR_IMAGE}/dtb-${QCOM_DTB_DEFAULT}-image.vfat spinor/${QCOM_DTB_FILE}
-            fi
+            if [ -n "${QCOM_BOOT_FILES_SUBDIR}" ] && [ -d "${common_src}" ]; then
+                # 1. 拷贝通用固件 (按后缀过滤)
+                for bfw in `find ${common_src} -maxdepth 1 -type f \
+                        \( -name '*.elf' ! -name 'abl2esp*.elf' ! -name 'xbl_config*.elf' \) -o \
+                        -name '*.mbn*' -o \
+                        -name '*.fv' -o \
+                        -name 'cdt_*.bin' -o \
+                        -name 'logfs_*.bin' -o \
+                        -name 'sec.dat'` ; do
+                    install -m 0644 ${bfw} "${dest_dir}/"
+                done
 
-            # copy programer to support flash of HLOS images
-            find "${DEPLOY_DIR_IMAGE}/${QCOM_BOOT_FILES_SUBDIR}/spinor" -maxdepth 1 -type f -name 'xbl_s_devprg_ns.melf' -exec install -m 0644 {} . \;
+                # 2. CDT (通用)
+                if [ -n "${QCOM_CDT_FILE}" ] && [ -e "${common_src}/${QCOM_CDT_FILE}.bin" ]; then
+                    install -m 0644 "${common_src}/${QCOM_CDT_FILE}.bin" "${dest_dir}/cdt.bin"
+                fi
+
+                # 3. DTB (通用): 拷贝所有 dtb variants
+                if [ -n "${QCOM_DTB_DEFAULT}" ] && \
+                   [ -f "${DEPLOY_DIR_IMAGE}/dtb-${QCOM_DTB_DEFAULT}-image.vfat" ]; then
+
+                    # 默认 DTB 重命名为 dtb.bin
+                    install -m 0644 "${DEPLOY_DIR_IMAGE}/dtb-${QCOM_DTB_DEFAULT}-image.vfat" "${dest_dir}/${QCOM_DTB_FILE}"
+
+                    # 拷贝其余所有 DTB 镜像
+                    for dtbimg in ${DEPLOY_DIR_IMAGE}/dtb-*-image.vfat; do
+                        install -m 0644 ${dtbimg} "${dest_dir}/"
+                    done
+                fi
+
+                # 4. xbl_config & abl2esp
+                local xbl_config="xbl_config.elf"
+                if ${@bb.utils.contains('DISTRO_FEATURES', 'kvm', 'true', 'false', d)}; then
+                    xbl_config="xbl_config_kvm.elf"
+                fi
+                if [ -f "${common_src}/${xbl_config}" ]; then
+                    install -m 0644 "${common_src}/${xbl_config}" "${dest_dir}/xbl_config.elf"
+                fi
+                if [ -e "${DEPLOY_DIR_IMAGE}/abl2esp-${ABL_SIGNATURE_VERSION}.elf" ]; then
+                    install -m 0644 "${DEPLOY_DIR_IMAGE}/abl2esp-${ABL_SIGNATURE_VERSION}.elf" "${dest_dir}/"
+                fi
+
+                # 5. Legacy Boot Images (boot.img)
+                # 这部分逻辑是从原文件保留下来的，主要针对非 EFI 启动或旧式启动
+                if [ -n "${QCOM_DTB_DEFAULT}" ]; then
+                    if [ -e "${DEPLOY_DIR_IMAGE}/boot-initramfs-${QCOM_DTB_DEFAULT}-${MACHINE}.img" ]; then
+                        install -m 0644 "${DEPLOY_DIR_IMAGE}/boot-initramfs-${QCOM_DTB_DEFAULT}-${MACHINE}.img" "${dest_dir}/boot.img"
+                    elif [ -e "${DEPLOY_DIR_IMAGE}/boot-${QCOM_DTB_DEFAULT}-${MACHINE}.img" ]; then
+                        install -m 0644 "${DEPLOY_DIR_IMAGE}/boot-${QCOM_DTB_DEFAULT}-${MACHINE}.img" "${dest_dir}/boot.img"
+                    fi
+                fi
+                if [ ! -e "${dest_dir}/boot.img" ] && [ -e "${DEPLOY_DIR_IMAGE}/boot-${MACHINE}.img" ]; then
+                    install -m 0644 "${DEPLOY_DIR_IMAGE}/boot-${MACHINE}.img" "${dest_dir}/boot.img"
+                fi
+            fi
         fi
-    fi
 
-    # abl2esp
-    if [ -e "${DEPLOY_DIR_IMAGE}/abl2esp-${ABL_SIGNATURE_VERSION}.elf" ]; then
-        install -m 0644 "${DEPLOY_DIR_IMAGE}/abl2esp-${ABL_SIGNATURE_VERSION}.elf" .
-    fi
+    done
 
-    # Create symlink to ${QCOMFLASH_DIR} dir
+    # 4. 打包生成 (Tarball)
+    # 此时目录结构已就绪，一次性打包
+
     ln -rsf ${QCOMFLASH_DIR} ${IMGDEPLOYDIR}/${IMAGE_LINK_NAME}.qcomflash
 
-    # Create qcomflash tarball
-    ${IMAGE_CMD_TAR} --sparse --numeric-owner --transform="s,^\./,${IMAGE_BASENAME}-${MACHINE}/," -cf- . | gzip -f -9 -n -c --rsyncable > ${IMGDEPLOYDIR}/${IMAGE_NAME}.qcomflash.tar.gz
+    ${IMAGE_CMD_TAR} --sparse --numeric-owner --transform="s,^\./,${IMAGE_BASENAME}-${MACHINE}/," -cf- . \
+        | gzip -f -9 -n -c --rsyncable > ${IMGDEPLOYDIR}/${IMAGE_NAME}.qcomflash.tar.gz
+
     ln -sf ${IMAGE_NAME}.qcomflash.tar.gz ${IMGDEPLOYDIR}/${IMAGE_LINK_NAME}.qcomflash.tar.gz
 }
 
