@@ -1,223 +1,93 @@
 # meta-qcom CI KAS Configurations
 
-This directory contains [KAS](https://kas.readthedocs.io/) YAML configuration files used to build Yocto Project images for Qualcomm platforms. KAS resolves layers, sets BitBake variables, and locks repository revisions — all in a single composable file per concern.
-
-Builds are assembled by combining multiple files using KAS's `:` separator:
-
-```sh
-kas build ci/base.yml:ci/rb3gen2-core-kit.yml:ci/qcom-distro.yml
-```
-
----
-
-## File Categories
-
-### Base / Lock
-
-| File | Description |
-|------|-------------|
-| `base.yml` | Foundation for all builds. Pulls in `oe-core`, `bitbake`, and `meta-qcom`. Sets disk monitoring, CodeLinaro mirrors, QCOM image classes, and `nodistro` distro. |
-| `base.lock.yml` | Pins exact git commits for all major components (`oe-core`, `bitbake`, `meta-arm`, `meta-openembedded`, `meta-virtualization`, `meta-audioreach`, `meta-selinux`, `meta-updater`, `meta-security`) for fully reproducible builds. |
-
-### CI
-
-| File | Description |
-|------|-------------|
-| `ci.yml` | CI-specific overrides. Includes `mirror.yml`, disables work directory cleanup (`rm_work`), enables firmware compression (`zst`). |
-
-### Machine / Board Targets
-
-Each file sets `machine:` and includes `base.yml`.
-
-| File | Board |
-|------|-------|
-| `rb1-core-kit.yml` | Qualcomm RB1 Core Kit |
-| `rb3gen2-core-kit.yml` | Qualcomm RB3 Gen 2 Core Kit |
-| `rb3gen2-core-kit-open-fw.yml` | RB3 Gen 2 with open firmware (also includes `meta-arm.yml`) |
-| `qcs615-ride.yml` | QCS615 RIDE |
-| `qcs8300-ride-sx.yml` | QCS8300 RIDE-SX |
-| `qcs9100-ride-sx.yml` | QCS9100 RIDE-SX |
-| `qcm6490-idp.yml` | QCM6490 IDP |
-| `iq-615-evk.yml` | IQ615 EVK |
-| `iq-8275-evk.yml` | IQ8275 EVK |
-| `iq-9075-evk.yml` | IQ9075 EVK |
-| `iq-x5121-evk.yml` | IQX5121 EVK |
-| `iq-x7181-evk.yml` | IQX7181 EVK |
-| `kaanapali-mtp.yml` | Kaanapali MTP |
-| `glymur-crd.yml` | Glymur CRD |
-| `sm8750-mtp.yml` | SM8750 MTP |
-
-> **Symlinks:** `qcs6490-rb3gen2-core-kit.yml` → `rb3gen2-core-kit.yml`, `qrb2210-rb1-core-kit.yml` → `rb1-core-kit.yml`
-
-### Distro
-
-| File | Description |
-|------|-------------|
-| `qcom-distro.yml` | Full distro stack: adds `meta-qcom-distro`, `meta-openembedded`, `meta-virtualization`, `meta-audioreach`, `meta-selinux`, `meta-updater`, `meta-security`. Builds `qcom-multimedia-image`, `qcom-multimedia-proprietary-image`, and `qcom-container-orchestration-image`. |
-| `qcom-distro-catchall.yml` | Catch-all distro variant (`qcom-distro-catchall`) for broad board coverage. Includes `qcom-distro.yml`. |
-| `qcom-distro-kvm.yml` | KVM/virtualisation variant (`qcom-distro-kvm`). Includes `qcom-distro.yml`. |
-| `qcom-distro-multimedia-image.yml` | Restricts targets to `qcom-multimedia-image` only. Includes `qcom-distro.yml`. |
-| `qcom-distro-selinux.yml` | SELinux-enabled variant (`qcom-distro-selinux`). Includes `qcom-distro.yml`. |
-| `qcom-distro-sota.yml` | OTA update variant (`qcom-distro-sota`) via `meta-updater`. Includes `qcom-distro.yml`. |
-
-### Kernel Source Overrides
-
-These files override `PREFERRED_PROVIDER_virtual/kernel` (and optionally `PREFERRED_VERSION_virtual/kernel`). Combine with any board + distro config.
-
-| File | Kernel |
-|------|--------|
-| `linux-qcom-6.18.yml` | Stable QCOM kernel 6.18.y |
-| `linux-qcom-rt-6.18.yml` | Real-time QCOM kernel 6.18.y |
-| `linux-qcom-next.yml` | QCOM development kernel (`linux-qcom-next`) |
-| `linux-qcom-next-rt.yml` | Real-time development kernel (`linux-qcom-next-rt`) |
-| `linux-yocto-dev.yml` | Generic Yocto development kernel |
-| `u-boot-qcom.yml` | Selects the QCOM U-Boot bootloader (`PREFERRED_PROVIDER_virtual/bootloader`) |
-
-### Architecture
-
-| File | Description |
-|------|-------------|
-| `meta-arm.yml` | Adds `meta-arm` and `meta-arm-toolchain` layers for ARM toolchain support. |
-| `qcom-armv7a.yml` | Generic 32-bit ARM machine (`qcom-armv7a`). Includes `base.yml`. |
-| `qcom-armv8a.yml` | Generic 64-bit ARM machine (`qcom-armv8a`). Includes `base.yml`. |
-
-### Mirror / Fetch
-
-| File | Description |
-|------|-------------|
-| `mirror.yml` | Configures `SSTATE_MIRRORS` to use the Yocto Project shared-state cache — speeds up incremental builds. |
-| `mirror-tarballs.yml` | Sets `BB_GENERATE_MIRROR_TARBALLS = "1"` to produce source tarballs during a build (used for populating a mirror). |
-| `mirror-download-disable.yml` | Removes `qli-mirrors` from `INHERIT` — forces all sources to be fetched directly (used when generating a clean mirror). |
-| `mirror-download-test.yml` | Sets `BB_FETCH_PREMIRRORONLY = "1"` — validates that every source can be satisfied from the configured premirror. |
-
-### Build Options
-
-| File | Description |
-|------|-------------|
-| `debug.yml` | Sets `DEBUG_BUILD = "1"` to compile with debug symbols. |
-| `performance.yml` | Appends `quiet` to `KERNEL_CMDLINE_EXTRA` to reduce boot time. |
-| `world.yml` | Sets the build target to `world` and restricts `EXCLUDE_FROM_WORLD` to non-`layer-qcom` packages. |
-
-### UEFI Capsule / Firmware Signing
-
-| File | Description |
-|------|-------------|
-| `capsule.yml` | Enables UEFI FMP capsule generation via `firmware-qcom-capsule`. |
-| `capsule-test-keys.yml` | Points `CAPSULE_ROOT_CER`, `CAPSULE_CERT_PEM`, and related variables at the test PKI keys in `test-keys/`. **For development/CI only — not for production.** |
-
----
-
-## Usage Examples
-
-### Minimal board build
-
-```sh
-kas build ci/base.yml:ci/rb3gen2-core-kit.yml
-```
-
-### Full distro build
-
-```sh
-kas build ci/qcom-distro.yml:ci/rb3gen2-core-kit.yml
-```
-
-### CI build (preserves work dir, uses sstate mirror)
-
-```sh
-kas build ci/base.yml:ci/ci.yml:ci/rb3gen2-core-kit.yml:ci/qcom-distro.yml
-```
-
-### CI build with reproducible locked revisions
+[KAS](https://kas.readthedocs.io/) configuration fragments for building Yocto/OE images on
+Qualcomm hardware. Files are composed with `:` separators; later files override earlier ones.
 
 ```sh
 kas build ci/base.yml:ci/base.lock.yml:ci/ci.yml:ci/rb3gen2-core-kit.yml:ci/qcom-distro.yml
 ```
 
-### Build with upstream development kernel
+## File naming conventions
+
+| Pattern | Meaning |
+|---------|---------|
+| `base.yml`, `base.lock.yml`, `ci.yml`, `world.yml` | Foundation — included by almost every build |
+| `<board>.yml` | Selects a specific machine (e.g. `rb3gen2-core-kit.yml`) |
+| `qcom-armv8a.yml`, `qcom-armv7a.yml` | Generic architecture targets |
+| `qcom-distro[-<variant>].yml` | Full Qualcomm Linux distro stack and variants |
+| `linux-qcom[-<variant>]-<ver>.yml` | Kernel recipe selector/pin |
+| `mirror*.yml` | BitBake source/sstate mirror behaviour |
+| `capsule*.yml` | UEFI FMP capsule image generation |
+| `debug.yml`, `performance.yml` | One-shot build modifiers |
+
+## Configuration reference
+
+| Filename | Category | Description |
+|----------|----------|-------------|
+| `base.yml` | Base | Foundation for all builds. Adds oe-core, bitbake, meta-qcom layers; sets `distro: nodistro`; configures mirrors, flash image class, common local.conf settings. Default target: `core-image-base`. |
+| `base.lock.yml` | Base | Pins exact git SHAs for all shared repos for reproducible builds. |
+| `ci.yml` | Base | CI overlay: includes `mirror.yml`, sets `OEBasicHash` signatures, disables `rm_work`. |
+| `world.yml` | Base | Builds `world` target scoped to `layer-qcom` packages. |
+| `meta-arm.yml` | Layer | Adds `meta-arm` and `meta-arm-toolchain` layers. |
+| `rb3gen2-core-kit.yml` | Board | `rb3gen2-core-kit` — Qualcomm Robotics RB3 Gen 2 Core Kit |
+| `rb3gen2-core-kit-open-fw.yml` | Board | `rb3gen2-core-kit-open-fw` — RB3 Gen 2 with open-source firmware (includes `meta-arm.yml`) |
+| `rb1-core-kit.yml` | Board | `rb1-core-kit` — Qualcomm Robotics RB1 Core Kit |
+| `qcs9100-ride-sx.yml` | Board | `qcs9100-ride-sx` |
+| `qcs8300-ride-sx.yml` | Board | `qcs8300-ride-sx` |
+| `qcs615-ride.yml` | Board | `qcs615-ride` |
+| `qcm6490-idp.yml` | Board | `qcm6490-idp` — QCM6490 IDP |
+| `sm8750-mtp.yml` | Board | `sm8750-mtp` |
+| `kaanapali-mtp.yml` | Board | `kaanapali-mtp` |
+| `glymur-crd.yml` | Board | `glymur-crd` |
+| `iq-8275-evk.yml` | Board (IQ EVK) | `iq-8275-evk` |
+| `iq-9075-evk.yml` | Board (IQ EVK) | `iq-9075-evk` |
+| `iq-615-evk.yml` | Board (IQ EVK) | `iq-615-evk` |
+| `iq-x5121-evk.yml` | Board (IQ EVK) | `iq-x5121-evk` |
+| `iq-x7181-evk.yml` | Board (IQ EVK) | `iq-x7181-evk` |
+| `qcom-armv8a.yml` | Arch | Generic 64-bit ARMv8-A machine (no board BSP) |
+| `qcom-armv7a.yml` | Arch | Generic 32-bit ARMv7-A machine (no board BSP) |
+| `qcom-distro.yml` | Distro | Full Qualcomm Linux distro stack. Adds meta-qcom-distro, meta-oe, meta-multimedia, meta-virtualization, meta-audioreach, meta-selinux, meta-updater, meta-security. Targets: `qcom-multimedia-image`, `qcom-multimedia-proprietary-image`, `qcom-container-orchestration-image`. |
+| `qcom-distro-catchall.yml` | Distro | `qcom-distro-catchall` — broad package coverage variant |
+| `qcom-distro-selinux.yml` | Distro | `qcom-distro-selinux` — SELinux-enabled variant |
+| `qcom-distro-kvm.yml` | Distro | `qcom-distro-kvm` — KVM/virtualisation variant |
+| `qcom-distro-sota.yml` | Distro | `qcom-distro-sota` — OTA update variant via meta-updater/Uptane |
+| `qcom-distro-multimedia-image.yml` | Distro | Restricts target to `qcom-multimedia-image` only |
+| `linux-qcom-next.yml` | Kernel | Selects `linux-qcom-next` (upstream development branch) |
+| `linux-qcom-next-rt.yml` | Kernel | Selects `linux-qcom-next-rt` (PREEMPT_RT, next branch) |
+| `linux-qcom-6.18.yml` | Kernel | Pins `linux-qcom` at 6.18.x |
+| `linux-qcom-rt-6.18.yml` | Kernel | Pins `linux-qcom-rt` (PREEMPT_RT) at 6.18.x |
+| `linux-yocto-dev.yml` | Kernel | Selects `linux-yocto-dev` for Yocto compatibility testing |
+| `u-boot-qcom.yml` | Bootloader | Selects `u-boot-qcom` recipe |
+| `mirror.yml` | Mirror | Configures `SSTATE_MIRRORS` → sstate.yoctoproject.org (included by `ci.yml`) |
+| `mirror-tarballs.yml` | Mirror | Sets `BB_GENERATE_MIRROR_TARBALLS = "1"` to populate a download mirror |
+| `mirror-download-test.yml` | Mirror | Sets `BB_FETCH_PREMIRRORONLY = "1"` to validate a mirror is complete |
+| `mirror-download-disable.yml` | Mirror | Removes `qli-mirrors` from `INHERIT` for clean upstream mirroring |
+| `capsule.yml` | Feature | Enables UEFI FMP capsule image generation |
+| `capsule-test-keys.yml` | Feature | Test PKI keys for capsule signing — **CI/dev only, not for production** |
+| `debug.yml` | Modifier | Sets `DEBUG_BUILD = "1"` |
+| `performance.yml` | Modifier | Appends `quiet` to kernel cmdline for timing measurements |
+
+## Usage examples
 
 ```sh
+# Minimal build
+kas build ci/base.yml:ci/rb3gen2-core-kit.yml
+
+# Standard CI build (locked revisions + CI overrides)
+kas build ci/base.yml:ci/base.lock.yml:ci/ci.yml:ci/rb3gen2-core-kit.yml:ci/qcom-distro.yml
+
+# With upstream development kernel
 kas build ci/base.yml:ci/ci.yml:ci/rb3gen2-core-kit.yml:ci/qcom-distro.yml:ci/linux-qcom-next.yml
-```
 
-### Real-time kernel + SELinux
-
-```sh
+# PREEMPT_RT kernel + SELinux
 kas build ci/base.yml:ci/ci.yml:ci/rb3gen2-core-kit.yml:ci/qcom-distro-selinux.yml:ci/linux-qcom-rt-6.18.yml
-```
 
-### Capsule build with test keys
-
-```sh
+# Capsule image (test keys)
 kas build ci/base.yml:ci/rb3gen2-core-kit.yml:ci/capsule.yml:ci/capsule-test-keys.yml
 ```
 
-### Generate mirror tarballs
-
-```sh
-kas build ci/base.yml:ci/mirror-download-disable.yml:ci/mirror-tarballs.yml --runall fetch world
-```
-
-### Open an interactive KAS shell
-
-```sh
-kas shell ci/base.yml:ci/rb3gen2-core-kit.yml
-# or via container:
-kas-container shell ci/base.yml:ci/rb3gen2-core-kit.yml
-```
-
----
-
-## Helper Scripts
-
-Scripts are designed to be invoked through the KAS shell environment. They accept two positional arguments: `REPO_DIR` (path to the meta-qcom checkout) and `WORK_DIR` (KAS workspace directory).
-
-### `kas-shell-helper.sh`
-
-Wrapper that launches a KAS shell and runs an arbitrary script inside it:
-
-```sh
-./ci/kas-shell-helper.sh ./ci/yocto-check-layer.sh
-```
-
-Creates (or reuses `$KAS_WORK_DIR`) an isolated workspace, then runs the target script via `kas shell ci/base.yml --command`.
-
-### `kas-container-shell-helper.sh`
-
-Same as `kas-shell-helper.sh` but uses `kas-container` (or the command in `$KAS_CONTAINER`). Converts the script path to a repo-relative path before passing it into the container where the repo is mounted at `/repo`.
-
-### `yocto-check-layer.sh`
-
-Validates the meta-qcom layer structure and dependencies using `yocto-check-layer`. Auto-discovers all machine names from `conf/machine/*.conf` and runs validation against each. Used in CI to catch missing layer dependencies before merge.
-
-### `yocto-patchreview.sh`
-
-Runs `patchreview.py` from oe-core to verify that all patches in the layer carry correct `Signed-off-by` and `Upstream-Status` tags. Exits non-zero on any violation.
-
-### `yocto-pybootchartgui.sh`
-
-Finds the most recent `buildstats` directory in the workspace and generates an SVG build timeline using oe-core's `pybootchartgui`. Output is written to a `buildchart/` directory. Useful for diagnosing slow builds.
-
-### `schemacheck.py`
-
-Validates LAVA test-job YAML files against the `lava_common` schema:
-
-```sh
-python3 ci/schemacheck.py path/to/lava-jobs/
-```
-
-Walks the directory tree, validates every `.yaml` file, and reports pass/fail for each. Returns a non-zero exit code if any file fails.
-
----
-
 ## test-keys/
 
-Contains development PKI certificates for UEFI Firmware Management Protocol (FMP) capsule signing:
-
-| File | Purpose |
-|------|---------|
-| `QcFMPRoot.cer` | Root certificate |
-| `QcFMPCert.pem` | Intermediate signing certificate |
-| `QcFMPRoot.pub.pem` | Root public key |
-| `QcFMPSub.pub.pem` | Subordinate public key |
-
-These keys are referenced by `capsule-test-keys.yml` and are intentionally insecure. **Do not use them in production images.** Production deployments require their own secure PKI infrastructure.
+Development PKI certificates for UEFI FMP capsule signing, referenced by `capsule-test-keys.yml`.
+Contains `QcFMPRoot.cer`, `QcFMPCert.pem`, `QcFMPRoot.pub.pem`, and `QcFMPSub.pub.pem`.
+**Must not be used in production.**
